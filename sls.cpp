@@ -11,7 +11,6 @@
 typedef std::vector<std::vector<char>> Grid;
 typedef std::vector<std::vector<int>> ColorGrid;
 
-
 void init (Grid& grid, int height, int width) {
     grid.resize(height);
     for (auto& row : grid) {
@@ -40,7 +39,6 @@ public:
                 width_counter = 0;
             } else if (c >= '0' && c <= '9') {
                 colors[height_counter][width_counter] = (int) c - '0';
-                // std::cout << "Added color " << c << " : " << colors[height_counter][width_counter]  << std::endl; 
                 width_counter++;
             } else {
                 colors[height_counter][width_counter] = 1;
@@ -158,8 +156,7 @@ void drawArt (AsciiArt art, int x, int y) {
     for (int r = 0; r < art.height; r++) {
         for (int c = 0; c < art.width; c++) {
             if (art.getCharAt(r, c) != ' ') {
-                int color_pair = art.getColorAt(r, c);
-                mvaddch(x+r,y+c,art.getCharAt(r, c) | COLOR_PAIR(color_pair));
+                mvaddch(x+r,y+c,art.getCharAt(r, c) | COLOR_PAIR(art.getColorAt(r, c)) );
             }
         }
     }
@@ -190,7 +187,7 @@ int getRandomAttr(int freq) {
     return attr;
 }
 
-void drawArtJiggly (AsciiArt art, int x, int y) {
+void drawArtSparkly (AsciiArt art, int x, int y) {
     for (int r = 0; r < art.height; r++) {
         for (int c = 0; c < art.width; c++) {
             int pixel = art.getCharAt(r, c);
@@ -232,6 +229,7 @@ int main () {
 
     // init
 	initscr();		
+    curs_set(0);
 
     int num_rows, num_cols;
     getmaxyx(stdscr,num_rows,num_cols);
@@ -248,39 +246,59 @@ int main () {
     int tower_x_base = 25;
     int tower_y_base = 2;
 
-	start_color();			/* Start color 			*/
-
-	init_pair(1, COLOR_WHITE, COLOR_BLACK);
-
-    init_color(COLOR_RED, 756, 325, 137);
-
-	init_pair(4, COLOR_WHITE, COLOR_BLACK);
-	init_pair(5, COLOR_RED, COLOR_BLACK);
-	init_pair(6,  COLOR_BLUE, COLOR_BLACK);
-
-    // Retract the arm
-    for (int i = 0; i < num_arm_stages; i++) {
-        clear();
-        drawArt(sls, y_frame + sls_y_base, x_frame + sls_x_base);
-        drawArt(arm[i], y_frame + arm_y_base, x_frame + arm_x_base + i);
-        drawArt(tower, y_frame + tower_y_base, x_frame + tower_x_base);
-
-        refresh();
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-
-
     int number_x_base = -25;
     int number_y_base = 5;
     int liftoff_x_base = -45;
 
-    // Countdown
-    for (int i = 10; i > 5; i--) {
-        clear();
+	start_color();
+
+	init_pair(1, COLOR_WHITE, COLOR_BLACK);
+
+    // Change magenta to be that orangey sls color
+    init_color(COLOR_MAGENTA, 756, 325, 137);
+    init_color(COLOR_RED, 756, 0, 0);
+
+
+    // just white
+	init_pair(4, COLOR_WHITE, COLOR_BLACK);
+
+    // sls orange
+	init_pair(5, COLOR_MAGENTA, COLOR_BLACK);
+
+    // blue for the nasa meatball
+	init_pair(6,  COLOR_BLUE, COLOR_BLACK);
+
+    // Red for nasa logo
+	init_pair(7,  COLOR_RED, COLOR_BLACK);
+
+
+    int countdown_stage = 10;
+    bool incr_countdown = false;
+
+    // Contdown and Retract the arm
+    for (int i = 0; i < num_arm_stages; i++) {
+        erase();
+        drawArt(sls, y_frame + sls_y_base, x_frame + sls_x_base);
+        drawArt(arm[i], y_frame + arm_y_base, x_frame + arm_x_base + i);
+        drawArt(tower, y_frame + tower_y_base, x_frame + tower_x_base);
+        drawArt(countdown[countdown_stage], y_frame + number_y_base, x_frame + number_x_base);
+
+        refresh();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+        if (incr_countdown) {
+            countdown_stage--;
+        }
+        incr_countdown = !incr_countdown;
+    }
+
+    // Countdown to 3
+    for (; countdown_stage > 3; countdown_stage--) {
+        erase();
         drawArt(sls, y_frame + sls_y_base, x_frame + sls_x_base);
         drawArt(arm[final_arm_index], y_frame + arm_y_base, x_frame + arm_x_base + final_arm_index);
         drawArt(tower, y_frame + tower_y_base, x_frame + tower_x_base);
-        drawArt(countdown[i], y_frame + number_y_base, x_frame + number_x_base);
+        drawArt(countdown[countdown_stage], y_frame + number_y_base, x_frame + number_x_base);
 
         refresh();
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -294,19 +312,19 @@ int main () {
     int l_engine_x = 10; 
 
     int plume_referesh_rate = 10;
-    for (int i = 5; i >=1 ; i--) {
+    for (int i = countdown_stage; i >=1 ; i--) {
         for (int j = 0; j < plume_referesh_rate; j++) {
-            clear();
+            erase();
             drawArt(sls, y_frame + sls_y_base, x_frame + sls_x_base);
             drawArt(arm[final_arm_index], y_frame + arm_y_base, x_frame + arm_x_base + final_arm_index);
             drawArt(tower, y_frame + tower_y_base, x_frame + tower_x_base);
             drawArt(countdown[i], y_frame + number_y_base, x_frame + number_x_base);
 
             // draw plumes
-            drawArt(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + r_booster_x);
-            drawArt(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + l_booster_x);
-            drawArt(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + r_engine_x);
-            drawArt(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + l_engine_x);
+            drawArtSparkly(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + r_booster_x);
+            drawArtSparkly(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + l_booster_x);
+            drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + r_engine_x);
+            drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + l_engine_x);
 
             refresh();
             std::this_thread::sleep_for(std::chrono::milliseconds(1000/plume_referesh_rate));
@@ -316,17 +334,17 @@ int main () {
     // sparkle everything, just for fun
     int jiggle_frames = 10;
     for (int i = 0; i < jiggle_frames; i++) {
-        clear();
-        drawArtJiggly(sls, y_frame + sls_y_base, x_frame + sls_x_base);
+        erase();
+        drawArt(sls, y_frame + sls_y_base, x_frame + sls_x_base);
         drawArt(arm[final_arm_index], y_frame + arm_y_base, x_frame + arm_x_base + final_arm_index);
         drawArt(tower, y_frame + tower_y_base, x_frame + tower_x_base);
-        drawArtJiggly(countdown[0], y_frame + number_y_base, x_frame + liftoff_x_base);
+        drawArtSparkly(countdown[0], y_frame + number_y_base, x_frame + liftoff_x_base);
 
         // draw plumes
-        drawArt(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + r_booster_x);
-        drawArt(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + l_booster_x);
-        drawArt(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + r_engine_x);
-        drawArt(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + l_engine_x);
+        drawArtSparkly(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + r_booster_x);
+        drawArtSparkly(AnimatedPlume::generate(5), y_frame + plume_start_y, x_frame + l_booster_x);
+        drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + r_engine_x);
+        drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y, x_frame + l_engine_x);
 
         refresh();
         std::this_thread::sleep_for(std::chrono::milliseconds(1000/plume_referesh_rate));
@@ -334,33 +352,43 @@ int main () {
 
 
     // Launch!
-    int launch_frames = num_rows + 5;
-    int frame_rate = 200;
+    int launch_frames = num_rows + 300;
+    int frame_rate = 150;
     for (int i = 0; i < launch_frames; i++) {
-        clear();
-        drawArtJiggly(sls, y_frame + sls_y_base - i, x_frame + sls_x_base);
+        erase();
+        drawArt(sls, y_frame + sls_y_base - i, x_frame + sls_x_base);
         drawArt(arm[final_arm_index], y_frame + arm_y_base, x_frame + arm_x_base + final_arm_index);
         drawArt(tower, y_frame + tower_y_base, x_frame + tower_x_base);
-        drawArtJiggly(countdown[0], y_frame + number_y_base, x_frame + liftoff_x_base);
+        drawArtSparkly(countdown[0], y_frame + number_y_base, x_frame + liftoff_x_base);
 
-        drawArt(AnimatedPlume::generate(5), y_frame + plume_start_y-i, x_frame + r_booster_x);
-        drawArt(AnimatedPlume::generate(5), y_frame + plume_start_y-i, x_frame + l_booster_x);
-        drawArt(AnimatedPlume::generate(3), y_frame + plume_start_y-i, x_frame + r_engine_x);
-        drawArt(AnimatedPlume::generate(3), y_frame + plume_start_y-i, x_frame + l_engine_x);
+        drawArtSparkly(AnimatedPlume::generate(5), y_frame + plume_start_y-i, x_frame + r_booster_x);
+        drawArtSparkly(AnimatedPlume::generate(5), y_frame + plume_start_y-i, x_frame + l_booster_x);
+        drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y-i, x_frame + r_engine_x);
+        drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y-i, x_frame + l_engine_x);
 
         refresh();
         std::this_thread::sleep_for(std::chrono::milliseconds(frame_rate));
 
         // speed up
-        frame_rate = (double) frame_rate * 0.93;
+        frame_rate = (double) frame_rate * 0.95;
     }
 
+    // ending
+    int finale_frames = 100;
+    frame_rate = 20;
+    for (int i = 0; i < finale_frames; i++) {
+        erase();
+        drawArtSparkly(countdown[0], y_frame + number_y_base, x_frame + liftoff_x_base);
+        drawArt(arm[final_arm_index], y_frame + arm_y_base, x_frame + arm_x_base + final_arm_index);
+        drawArt(tower, y_frame + tower_y_base, x_frame + tower_x_base);
 
+        refresh();
+        std::this_thread::sleep_for(std::chrono::milliseconds(frame_rate));
+    }
 
-    // Wait for user input
-	getch();
     // Exit
 	endwin();
 
 	return 0;
 }
+
