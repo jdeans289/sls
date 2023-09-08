@@ -4,14 +4,15 @@
 #include <chrono>
 #include <thread>
 #include <sstream>
-#include <array>
+#include <cassert>
 
 #include "ascii_arts.hpp"
 
 typedef std::vector<std::vector<char>> Grid;
 typedef std::vector<std::vector<int>> ColorGrid;
 
-void init (Grid& grid, int height, int width) {
+template <typename T>
+void init (T& grid, int height, int width) {
     grid.resize(height);
     for (auto& row : grid) {
         row.resize(width);
@@ -83,7 +84,7 @@ public:
         }
     }
 
-    AsciiArt(Grid g, int w, int h) : grid(g), width(w), height(h), has_colors(false) {}
+    AsciiArt(Grid g) : grid(g), width(g[0].size()), height(g.size()), has_colors(false) {}
 
     void print () {
         for (int r = 0; r < height; r++) {
@@ -124,17 +125,27 @@ public:
 
 class AnimatedPlume {
 public:
-    static AsciiArt generate(size_t plume_size) {
-        const std::string plume_chars  = "*~#$%&     /8b`'";
+    const static std::string plume_chars;
 
+    static AsciiArt generate(size_t plume_size) {
         int width = plume_size;
         int height = plume_size/2+1;
 
         Grid grid;
-        init(grid, height, width);
+        ColorGrid colors;
+        init<Grid>(grid, height, width);
+        init<ColorGrid>(colors, height, width);
+
+
         for (auto& row : grid) {
             for (auto& c  : row) {
                 c = ' ';
+            }
+        }
+
+        for (auto& row : colors) {
+            for (auto& c  : row) {
+                c = 8;
             }
         }
 
@@ -148,9 +159,56 @@ public:
         }
         grid[height-1][width/2] = '*';
 
-        return AsciiArt(grid, width, height);
+        AsciiArt ret(grid);
+        ret.has_colors = true;
+        ret.colors = colors;
+        return ret;
     }
+
+    static AsciiArt generateSmoke(size_t top_width, size_t height) {
+        size_t total_width = top_width + 2*(height);
+
+        Grid grid;
+        init<Grid>(grid, height, total_width);
+
+        for (auto& row : grid) {
+            for (auto& c  : row) {
+                c = ' ';
+            }
+        }
+
+        int start_col = (total_width - top_width)/2;
+        int end_col = total_width - (total_width-top_width)/2;
+        int max_expansion = 10;
+        int straight_rows = 20;
+
+        for (int r = 0; r < grid.size(); r++) {
+            for (int c = start_col; c < end_col; c++) {
+                grid[r][c] = plume_chars.at(rand() % plume_chars.size());
+            }
+
+            if (max_expansion-- > 0) {
+                if (r % 2 == 0) {
+                    if (start_col > 0) start_col--;
+                    if (end_col < grid[r].size()-1) end_col++;
+                }
+                
+            } else {
+                if (straight_rows-- > 0) {
+
+                } else {
+                    if (start_col < total_width/2) start_col++;
+                    if (end_col > total_width/2) end_col--;
+                }
+            }
+
+        }
+
+        return AsciiArt(grid);
+    }   
 };
+
+const std::string AnimatedPlume::plume_chars = "*~#$%&/8b`'      ";
 
 void drawArt (AsciiArt art, int x, int y) {
     for (int r = 0; r < art.height; r++) {
@@ -204,9 +262,6 @@ int main () {
 
     AsciiArt tower (tower_raw);
     AsciiArt sls (sls_raw, sls_colors);
-
-    // sls.print();
-    // sls.printColor();
 
     std::vector<AsciiArt> arm;
     for (int i = 0; i < num_arm_stages; i++) {
@@ -271,11 +326,13 @@ int main () {
     // Red for nasa logo
 	init_pair(7,  COLOR_RED, COLOR_BLACK);
 
+    // Yellow for plumes
+	init_pair(8,  COLOR_YELLOW, COLOR_BLACK);
 
     int countdown_stage = 10;
     bool incr_countdown = false;
 
-    // Contdown and Retract the arm
+    // Countdown and Retract the arm
     for (int i = 0; i < num_arm_stages; i++) {
         erase();
         drawArt(sls, y_frame + sls_y_base, x_frame + sls_x_base);
@@ -365,6 +422,7 @@ int main () {
         drawArtSparkly(AnimatedPlume::generate(5), y_frame + plume_start_y-i, x_frame + l_booster_x);
         drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y-i, x_frame + r_engine_x);
         drawArtSparkly(AnimatedPlume::generate(3), y_frame + plume_start_y-i, x_frame + l_engine_x);
+        drawArtSparkly(AnimatedPlume::generateSmoke(19, i+3), y_frame + plume_start_y-i+3, x_frame+r_booster_x-i-2);
 
         refresh();
         std::this_thread::sleep_for(std::chrono::milliseconds(frame_rate));
